@@ -168,14 +168,24 @@ code\task2\run_task2.bat ^
 ### Run Task 3: Combine & Improve (SPV-Augmented Neural Detector)
 ```bash
 # 1. Compute Point-Biserial Correlation
-python code/task3/correlation.py --spv_scores data/task1_scores.csv --neural_preds checkpoints/task2/test_preds.csv
+python code/task3/correlation.py
 
 # 2. Train Augmented BiLSTM with SPV feature
-python code/task3/augmented_model.py --train_path data/trofi_train.csv --val_path data/trofi_val.csv --save_dir checkpoints/task3/
+python code/task3/augmented_model.py ^
+  --glove_path data/embeddings/glove.840B.300d.txt ^
+  --elmo_options data/embeddings/elmo_2x4096_1xhighway_options.json ^
+  --elmo_weights data/embeddings/elmo_2x4096_1xhighway_weights.hdf5
 
 # 3. Disagreement analysis and comprehensive comparison
-python code/task3/disagreement_analysis.py --task1_preds data/task1_preds.csv --task2_preds checkpoints/task2/test_preds.csv --task3_preds checkpoints/task3/test_preds.csv
+python code/task3/disagreement_analysis.py
+python code/task3/evaluate_task3.py
 ```
+
+Task 3 uses the split-specific Task 1 exports
+`data/task1/spv_scores_{train,val,test}.csv` and the Task 2 export
+`checkpoints/task2/test_predictions.csv`. See
+[code/task3/README.md](code/task3/README.md) for the full architecture,
+feature normalization policy, outputs, and interpretation guidance.
 
 ---
 

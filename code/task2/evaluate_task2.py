@@ -16,6 +16,29 @@ from model import TroFiBiLSTM
 from train import run_epoch
 
 
+def predict(model, elmo, loader, device):
+    model.eval()
+    rows = []
+    with torch.no_grad():
+        for batch in loader:
+            batch.to(device)
+            embeddings = elmo(batch.tokens, device)
+            logits = model(batch.token_ids, embeddings, batch.target_indices)
+            predictions = logits.argmax(dim=1).cpu().tolist()
+            for example_id, label, prediction in zip(
+                batch.example_ids, batch.labels.cpu().tolist(), predictions
+            ):
+                rows.append(
+                    {
+                        "sentence_id": example_id,
+                        "gold_label": label,
+                        "task2_prediction": prediction,
+                        "is_correct": int(label == prediction),
+                    }
+                )
+    return rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--test_path", required=True)
@@ -42,7 +65,9 @@ def main() -> None:
     elmo = ElmoEncoder(args.elmo_options, args.elmo_weights, device)
     model = TroFiBiLSTM(glove_weights, elmo_dim=elmo.output_dim).to(device)
     model.load_state_dict(checkpoint["model_state_dict"])
-    _, predictions, labels = run_epoch(model, elmo, loader, torch.nn.CrossEntropyLoss(), device)
+    rows = predict(model, elmo, loader, device)
+    labels = [row["gold_label"] for row in rows]
+    predictions = [row["task2_prediction"] for row in rows]
 
     result = {
         "accuracy": accuracy_score(labels, predictions),
@@ -55,6 +80,9 @@ def main() -> None:
     print(json.dumps(result, indent=2))
     output_path = Path(args.model_path).with_name("test_metrics.json")
     output_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    prediction_path = Path(args.model_path).with_name("test_predictions.csv")
+    import pandas as pd
+    pd.DataFrame(rows).to_csv(prediction_path, index=False)
 
 
 if __name__ == "__main__":
